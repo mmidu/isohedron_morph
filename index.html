@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/74/three.min.js"></script>
+</head>
+
+<body>
+    <div id="data"></div>
+    <div id="container"></div>
+</body>
+<script>
+var container;
+
+var camera, scene, renderer;
+
+var mesh, texture;
+
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+
+var originalPositions = [];
+var geometries = [];
+var vertexes = [];
+var k = 0;
+
+init();
+animate();
+
+
+function init() {
+
+    container = document.getElementById('container');
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 20000);
+
+    scene = new THREE.Scene();
+
+
+    // texture = new THREE.TextureLoader().load('ModelBluShadowV2.jpg');
+    // texture.wrapS = THREE.MirroredRepeatWrapping;
+    // texture.wrapT = THREE.MirroredRepeatWrapping;
+    // texture.repeat.set(4, 4);
+
+    camera.position.z = 10;
+
+    var geometries = [
+        new THREE.IcosahedronGeometry(3, 0),
+        new THREE.OctahedronGeometry( 3, 1),
+        new THREE.DodecahedronGeometry(3,0),
+        new THREE.TetrahedronGeometry(3, 1)
+    ]
+
+    vertexes = [
+        [],
+        [],
+        [],
+        []
+    ]
+
+    for (var i in geometries){
+        for (var j in geometries[i].vertices){
+            var vertex = geometries[i].vertices[j]
+            vertexes[i].push(vertex.clone())
+        }
+    }
+
+    var geometry = new THREE.DodecahedronGeometry(3,0)
+
+    console.log(vertexes)
+
+    for (var i in geometry.vertices) {
+
+        var vertex = geometry.vertices[i];
+        originalPositions.push(vertex.clone())
+    }
+
+    geometry.computeFaceNormals();
+    geometry.computeVertexNormals();
+
+    material = new THREE.MeshStandardMaterial({
+        // map: texture,
+        color: 0x999999,
+        roughness: 0.1,
+        metalness: 0.1,
+        side: THREE.DoubleSide,
+        shading: THREE.FlatShading
+    });
+
+    mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true; //default is false
+    mesh.receiveShadow = false;
+    scene.add(mesh);
+
+    var ambiColor = "#ffffff";
+    var ambientLight = new THREE.AmbientLight(ambiColor, 0.56);
+    scene.add(ambientLight);
+
+    var pointColor = "#ffffff";
+    var directionalLight = new THREE.DirectionalLight(pointColor);
+    directionalLight.position.set(1, 10, 0);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.camera.near = 2;
+    directionalLight.shadow.camera.far = 20;
+    directionalLight.shadow.camera.left = -7;
+    directionalLight.shadow.camera.right = 7;
+    directionalLight.shadow.camera.top = 7;
+    directionalLight.shadow.camera.bottom = -7;
+
+    directionalLight.distance = 0;
+    directionalLight.intensity = 0.5;
+    directionalLight.shadow.mapSize.height = 1024;
+    directionalLight.shadow.mapSize.width = 1024;
+
+    var directionalLight2 = new THREE.DirectionalLight(pointColor);
+    directionalLight2.position.set(-1, 10, 0);
+    directionalLight2.castShadow = false;
+    directionalLight2.shadow.camera.near = 2;
+    directionalLight2.shadow.camera.far = 20;
+    directionalLight2.shadow.camera.left = -7;
+    directionalLight2.shadow.camera.right = 7;
+    directionalLight2.shadow.camera.top = 7;
+    directionalLight2.shadow.camera.bottom = -7;
+
+    directionalLight2.distance = 0;
+    directionalLight2.intensity = 0.5;
+    directionalLight2.shadow.mapSize.height = 1024;
+    directionalLight2.shadow.mapSize.width = 1024;
+
+    scene.add(directionalLight2);
+    scene.add(directionalLight);
+
+
+    var planeGeometry = new THREE.PlaneBufferGeometry(1024, 1024, 1, 1);
+    var planeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff })
+    var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.position.y = -7;
+    plane.rotation.x = -Math.PI / 2;
+    plane.receiveShadow = true;
+    scene.add(plane);
+
+    camera.lookAt(mesh.position);
+
+    scene.background = new THREE.Color(1, 1, 1, 1);
+
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true
+    });
+    // renderer.setClearColor(0xeeeeee);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+
+    container.innerHTML = "";
+
+    container.appendChild(renderer.domElement);
+    container.addEventListener('mousemove', onMouseMove, false);
+
+
+    window.addEventListener('resize', onWindowResize, false);
+}
+
+function onWindowResize() {
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+}
+
+function animate() {
+
+    requestAnimationFrame(animate);
+    update()
+
+    render();
+
+    mesh.rotation.y += 0.003;
+    mesh.rotation.x += 0.007;
+}
+
+function update() {
+    let finished = 0;
+
+    for (var i = 0; i < mesh.geometry.vertices.length; ++i) {
+
+        if(mesh.geometry.vertices[i].distanceTo(vertexes[k][i%vertexes[k].length]) < 0.1){
+            finished += 1
+        }
+        mesh.geometry.vertices[i].lerp(vertexes[k][i%vertexes[k].length], 0.03)
+        
+    }
+    if(finished == 20){
+        k++;
+        k %= 4;
+        console.log(k)
+    }
+    mesh.geometry.verticesNeedUpdate = true;
+
+}
+
+
+function render() {
+
+    renderer.render(scene, camera);
+
+}
+
+function onMouseMove(event) {
+
+    var matrix = new THREE.Matrix4();
+    matrix.extractRotation(mesh.matrix);
+
+    var direction = new THREE.Vector3(0, 0, 1);
+    direction.applyProjection(matrix);
+
+    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+
+    var intersects = raycaster.intersectObject(mesh);
+
+    if (intersects.length > 0) {
+
+        var ver = intersects[0].face;
+
+        var mod = 0.01;
+
+        var vertices = {
+            a: intersects[0].object.geometry.vertices[ver.a],
+            b: intersects[0].object.geometry.vertices[ver.b],
+            c: intersects[0].object.geometry.vertices[ver.c],
+        }
+        var direction = {
+            a: new THREE.Vector3(vertices.a.x * mod, vertices.a.y * mod, vertices.a.z * mod),
+            b: new THREE.Vector3(vertices.b.x * mod, vertices.b.y * mod, vertices.b.z * mod),
+            c: new THREE.Vector3(vertices.c.x * mod, vertices.c.y * mod, vertices.c.z * mod)
+        }
+
+        vertices.a.sub(direction.a)
+        vertices.b.sub(direction.b)
+        vertices.c.sub(direction.c)
+
+
+        intersects[0].object.geometry.verticesNeedUpdate = true;
+    }
+
+}
+</script>
+
+</html>
